@@ -9,7 +9,7 @@ public class ReportGeneratorService : IReportGeneratorService
     private record LogsInfo(
         string ServiceName,
         int RotationsAmount,
-        Log[] Logs);
+        Log[]? Logs);
     
     private static async Task<LogsInfo> GetLogsInfoFromDirectory(string serviceName, string directoryPath)
     {
@@ -61,6 +61,10 @@ public class ReportGeneratorService : IReportGeneratorService
     private static string FormReport(LogsInfo info)
     {
         var logs = info.Logs;
+
+        if (logs == null || logs.Length == 0)
+            return "No logs were found";
+        
         var earliestTime = logs[0].CreatedAt;
         var latestTime = logs[^1].CreatedAt;
         var severitySlice = new Dictionary<string, int>();

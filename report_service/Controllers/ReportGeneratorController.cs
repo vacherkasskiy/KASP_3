@@ -9,24 +9,46 @@ namespace report_service.Controllers;
 public class ReportGeneratorController : ControllerBase
 {
     private readonly IReportGeneratorService _service;
+    private static int _taskId = 1;
+    private static readonly Dictionary<int, Task<string>> Tasks = new ();
 
     public ReportGeneratorController(IReportGeneratorService service)
     {
         _service = service;
     }
-    
-    [HttpGet]
-    [Route("/report_generator/generate")]
-    public async Task<IActionResult> GenerateReport([FromQuery]GetReportRequest request)
+
+    [HttpPost]
+    [ProducesResponseType(200)]
+    [Route("/report_generator/add_task")]
+    public IActionResult AddGenerateReportTask(GetReportRequest request)
     {
-        try
-        {
-            var response = await _service.GenerateReport(request.ServiceName, request.LogsPath);
-            return Ok(response);
-        }
-        catch
-        {
-            return BadRequest();
-        }
+        var reportTask = _service.GenerateReport(request.ServiceName, request.LogsPath);
+        Tasks.Add(_taskId++, reportTask);
+
+        return Ok($"Created task with ID: {_taskId - 1}");
+    }
+
+    [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(202)]
+    [ProducesResponseType(400)]
+    [Route("/report_generator/get_status")]
+    public IActionResult GetGenerateReportTaskStatus(int taskId)
+    {
+        if (!Tasks.ContainsKey(taskId))
+            return StatusCode(
+                StatusCodes.Status400BadRequest,
+                "Wrong task id provided");
+        if (!Tasks[taskId].IsCompleted)
+            return StatusCode(
+                StatusCodes.Status202Accepted, 
+                "Report generation in progress, please wait");
+        if (Tasks[taskId].Exception != null && 
+            Tasks[taskId].Exception!.InnerException is DirectoryNotFoundException)
+            return StatusCode(
+                StatusCodes.Status400BadRequest, 
+                Tasks[taskId].Exception!.InnerException!.Message);
+
+        return Ok(Tasks[taskId].Result);
     }
 }
