@@ -1,9 +1,10 @@
 ﻿using System.Text.RegularExpressions;
 using report_service.Models;
+using report_service.Services.Interfaces;
 
 namespace report_service.Services;
 
-public class ReportGeneratorService
+public class ReportGeneratorService : IReportGeneratorService
 {
     private record LogsInfo(
         string ServiceName,

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using report_service.Requests;
-using report_service.Services;
+using report_service.Services.Interfaces;
 
 namespace report_service.Controllers;
 
@@ -8,9 +8,9 @@ namespace report_service.Controllers;
 [Route("[controller]")]
 public class ReportGeneratorController : ControllerBase
 {
-    private readonly ReportGeneratorService _service;
+    private readonly IReportGeneratorService _service;
 
-    public ReportGeneratorController(ReportGeneratorService service)
+    public ReportGeneratorController(IReportGeneratorService service)
     {
         _service = service;
     }
