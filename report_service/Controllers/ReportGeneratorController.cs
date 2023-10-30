@@ -30,9 +30,26 @@ public class ReportGeneratorController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(200)]
+    [Route("/report_generator/system_status")]
+    public IActionResult GetSystemStatus()
+    {
+        var taskInProgressIds = Tasks
+            .ToList()
+            .Where(pair => !pair.Value.IsCompleted)
+            .Select(pair => pair.Key)
+            .ToArray();
+
+        if (taskInProgressIds.Length == 0)
+            return Ok("All tasks are completed");
+
+        return Ok($"Tasks: {string.Join("; ", taskInProgressIds)} are in progress");
+    }
+
+    [HttpGet]
+    [ProducesResponseType(200)]
     [ProducesResponseType(202)]
     [ProducesResponseType(400)]
-    [Route("/report_generator/get_status")]
+    [Route("/report_generator/task_status")]
     public IActionResult GetGenerateReportTaskStatus(int taskId)
     {
         if (!Tasks.ContainsKey(taskId))
