@@ -2,5 +2,5 @@
 
 public interface IReportGeneratorService
 {
-    public Task<string> GenerateReport(string serviceName, string logsRelativePath);
+    public Task<string[]> GenerateReport(string serviceName, string logsRelativePath);
 }

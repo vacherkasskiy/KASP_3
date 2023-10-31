@@ -10,7 +10,7 @@ public class ReportGeneratorController : ControllerBase
 {
     private readonly IReportGeneratorService _service;
     private static int _taskId = 1;
-    private static readonly Dictionary<int, Task<string>> Tasks = new ();
+    private static readonly Dictionary<int, Task<string[]>> Tasks = new ();
 
     public ReportGeneratorController(IReportGeneratorService service)
     {
@@ -66,6 +66,6 @@ public class ReportGeneratorController : ControllerBase
                 StatusCodes.Status400BadRequest, 
                 Tasks[taskId].Exception!.InnerException!.Message);
 
-        return Ok(Tasks[taskId].Result);
+        return Ok(string.Join("\n", Tasks[taskId].Result));
     }
 }

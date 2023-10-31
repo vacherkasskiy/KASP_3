@@ -10,37 +10,48 @@ public class ReportGeneratorService : IReportGeneratorService
         string ServiceName,
         int RotationsAmount,
         Log[]? Logs);
-    
-    private static async Task<LogsInfo> GetLogsInfoFromDirectory(string serviceName, string directoryPath)
+
+    private static async Task<LogsInfo[]> GetLogsInfoFromDirectory(string serviceName, string directoryPath)
     {
         var files = Directory.GetFiles(directoryPath);
-        var pattern = $"{serviceName}\\.\\d+?\\.log";
+        var logsMap = new Dictionary<string, List<Log>>();
+        var rotationsMap = new Dictionary<string, int>();
+        
+        var rotatedLogPattern = $"{serviceName}\\.\\d+?\\.log";
         var newestLogPattern = $"{serviceName}\\.log";
 
         var logPaths = files
-            .Where(file => Regex.IsMatch(file.Split('\\')[^1], pattern))
-            .ToList();
+            .Where(file => 
+                Regex.IsMatch(file.Split('\\')[^1], rotatedLogPattern) ||
+                Regex.IsMatch(file.Split('\\')[^1], newestLogPattern))
+            .ToArray();
 
-        var newestLogPath = files
-            .FirstOrDefault(file => Regex.IsMatch(file.Split('\\')[^1], newestLogPattern));
-        
-        if (newestLogPath != null) logPaths.Add(newestLogPath);
-
-        var logs = new List<Log>();
         foreach (var logPath in logPaths)
         {
+            var logServiceName = logPath.Split("\\")[^1].Split('.')[0];
+            logsMap.TryAdd(logServiceName, new List<Log>());
+
+            if (rotationsMap.ContainsKey(logServiceName)) rotationsMap[logServiceName]++;
+            else rotationsMap.Add(logServiceName, 0);
+            
             var lines = await File.ReadAllLinesAsync(logPath);
             foreach (var line in lines)
             {
                 var log = ParseLog(line);
-                if (log != null) logs.Add(log);
+                if (log != null) logsMap[logServiceName].Add(log);
             }
         }
 
-        return new LogsInfo(
-            serviceName,
-            logPaths.Count - 1,
-            logs.ToArray());
+        var response = new List<LogsInfo>();
+        foreach (var item in logsMap)
+        {
+            response.Add(new LogsInfo(
+                item.Key, 
+                rotationsMap[item.Key], 
+                logsMap[item.Key].ToArray()));
+        }
+
+        return response.ToArray();
     }
 
     private static Log? ParseLog(string logString)
@@ -49,12 +60,12 @@ public class ReportGeneratorService : IReportGeneratorService
         var match = Regex.Match(logString, pattern);
 
         if (!match.Success) return null;
-        
+
         var createdAt = DateTime.Parse(match.Groups[1].Value);
         var severity = match.Groups[2].Value;
         var category = match.Groups[3].Value;
         var message = match.Groups[4].Value;
-        
+
         return new Log(createdAt, severity, category, message);
     }
 
@@ -64,7 +75,7 @@ public class ReportGeneratorService : IReportGeneratorService
 
         if (logs == null || logs.Length == 0)
             return "No logs were found";
-        
+
         var earliestTime = logs[0].CreatedAt;
         var latestTime = logs[^1].CreatedAt;
         var severitySlice = new Dictionary<string, int>();
@@ -74,7 +85,7 @@ public class ReportGeneratorService : IReportGeneratorService
         {
             if (!severitySlice.ContainsKey(log.Severity)) severitySlice.Add(log.Severity, 1);
             else severitySlice[log.Severity]++;
-            
+
             if (!categorySlice.ContainsKey(log.Category)) categorySlice.Add(log.Category, 1);
             else categorySlice[log.Category]++;
 
@@ -91,8 +102,8 @@ public class ReportGeneratorService : IReportGeneratorService
             .ToList()
             .ForEach(category =>
                 categorySliceInfo += $"{category.Key}: {category.Value} ({category.Value * 100 / logs.Length}%); ");
-        
-        var report = 
+
+        var report =
             "======= REPORT =======\n" +
             $"Service name: {info.ServiceName}\n" +
             $"Earliest log time: {earliestTime}\n" +
@@ -101,11 +112,11 @@ public class ReportGeneratorService : IReportGeneratorService
             $"Category slice info: {categorySliceInfo}\n" +
             $"Rotations amount: {info.RotationsAmount}\n" +
             $"======================\n";
-    
+
         return report;
     }
 
-    public async Task<string> GenerateReport(string serviceName, string logsRelativePath)
+    public async Task<string[]> GenerateReport(string serviceName, string logsRelativePath)
     {
         var logsFullPath = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory)!, logsRelativePath);
 
@@ -114,6 +125,9 @@ public class ReportGeneratorService : IReportGeneratorService
 
         var logsInfo = await GetLogsInfoFromDirectory(serviceName, logsFullPath);
 
-        return FormReport(logsInfo);
+        return 
+            logsInfo
+            .Select(FormReport)
+            .ToArray();
     }
 }
